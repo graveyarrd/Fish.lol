@@ -1,0 +1,228 @@
+--// CONFIG
+getgenv().HellgraveConfig = {
+    Keybind = "q",  -- Camlock toggle key
+    XPrediction = 0.122364283,
+    YPrediction = 0.1234252574,
+    JumpOffset = -0.48,
+    FallOffset = 0.04,
+    SmoothingFactor = 1,
+
+    Features = {
+        Camlock = true,
+        AutoAir = true,
+        NoGroundShot = true
+    },
+
+    AutoAir = {
+        DelayBeforeActivate = 0.181,
+        ResetDelay = 0.37
+    },
+
+    GUI = {
+        MainFrameSize = UDim2.new(0, 180, 0, 70),
+        LogoImage = "rbxassetid://88724352247002"
+    }
+}
+
+--// SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Config = getgenv().HellgraveConfig
+
+-- State
+local CamlockState = false
+local enemy = nil
+local canActivate = true
+
+--// NOTIFICATION
+local function SendNotification(text, duration)
+    pcall(function()
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "[Hellgrave]",
+            Text = text,
+            Duration = duration or 2
+        })
+    end)
+end
+
+--// FIND NEAREST ENEMY
+local function FindNearestEnemy()
+    local ClosestDistance, ClosestPlayer = math.huge, nil
+    local Center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer then
+            local Character = Player.Character
+            local HRP = Character and Character:FindFirstChild("HumanoidRootPart")
+            local Humanoid = Character and Character:FindFirstChild("Humanoid")
+
+            if HRP and Humanoid and Humanoid.Health > 0 then
+                local Position, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+                if OnScreen then
+                    local Distance = (Center - Vector2.new(Position.X, Position.Y)).Magnitude
+                    if Distance < ClosestDistance then
+                        ClosestDistance = Distance
+                        ClosestPlayer = HRP
+                    end
+                end
+            end
+        end
+    end
+    return ClosestPlayer
+end
+
+--// SMOOTH CAMLOCK
+local function SmoothCamLock(target)
+    if target and target.Parent then
+        local velocity = target.Velocity
+        local verticalVelocity = velocity.Y
+        local isJumping = verticalVelocity > 1
+        local isFalling = verticalVelocity < -1
+
+        local predictedPosition = Vector3.new(
+            target.Position.X + (velocity.X * Config.XPrediction),
+            target.Position.Y + (velocity.Y * Config.YPrediction),
+            target.Position.Z + (velocity.Z * Config.XPrediction)
+        )
+
+        if isJumping then
+            predictedPosition = predictedPosition + Vector3.new(0, Config.JumpOffset, 0)
+        elseif isFalling then
+            predictedPosition = predictedPosition - Vector3.new(0, Config.FallOffset, 0)
+        end
+
+        local newCFrame = CFrame.new(Camera.CFrame.Position, predictedPosition)
+        Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Config.SmoothingFactor)
+    end
+end
+
+--// CAMLOCK LOOP
+task.spawn(function()
+    while true do
+        if CamlockState and enemy then
+            SmoothCamLock(enemy)
+        end
+        task.wait(0.01)
+    end
+end)
+
+--// TOGGLE CAMLOCK
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode[Config.Keybind:upper()] then
+        if CamlockState then
+            CamlockState = false
+            enemy = nil
+        else
+            CamlockState = true
+            enemy = FindNearestEnemy()
+            if enemy and enemy.Parent then
+                local displayName = enemy.Parent:FindFirstChild("Humanoid") and enemy.Parent.Humanoid.DisplayName or enemy.Parent.Name
+                SendNotification("Locked onto " .. tostring(displayName) .. ".", 2)
+            end
+        end
+    end
+end)
+
+--// ANTI-GROUND
+local function ApplyAntiGround()
+    if not Config.Features.NoGroundShot then return end
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local velocity = hrp.Velocity
+        local SigmaAir = hrp.Position.Y > 2
+        if not SigmaAir and velocity.Y < -3 then
+            hrp.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
+        end
+    end
+end
+
+--// AUTO-AIR SYSTEM
+RunService.Stepped:Connect(function()
+    local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
+    if enemy and enemy.Parent and Config.Features.AutoAir then
+        local humanoid = enemy.Parent:FindFirstChild("Humanoid")
+        if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall and tool and canActivate then
+            canActivate = false
+            task.delay(Config.AutoAir.DelayBeforeActivate, function()
+                tool:Activate()
+                task.delay(Config.AutoAir.ResetDelay, function()
+                    canActivate = true
+                end)
+            end)
+        end
+    end
+    ApplyAntiGround()
+end)
+
+--// GUI CREATION
+local function CreateHellgraveGUI()
+    local hellgraveGui = Instance.new("ScreenGui")
+    hellgraveGui.ResetOnSpawn = false
+    hellgraveGui.Name = "HellgraveGUI"
+    hellgraveGui.Parent = game.CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = Config.GUI.MainFrameSize
+    frame.Position = UDim2.new(0.4, 0, 0.4, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BackgroundTransparency = 0.3
+    frame.BorderSizePixel = 0
+    frame.Parent = hellgraveGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 12)
+    uiCorner.Parent = frame
+
+    local logo = Instance.new("ImageButton")
+    logo.Size = UDim2.new(0, 140, 0, 50)
+    logo.Position = UDim2.new(0.1, 0, 0.15, 0)
+    logo.BackgroundTransparency = 1
+    logo.Image = Config.GUI.LogoImage
+    logo.Parent = frame
+
+    local function UpdateUIColor(active)
+        local targetColor = active and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(logo, TweenInfo.new(0.3), { ImageColor3 = targetColor }):Play()
+    end
+
+    logo.MouseButton1Click:Connect(function()
+        CamlockState = not CamlockState
+        enemy = CamlockState and FindNearestEnemy() or nil
+        UpdateUIColor(CamlockState)
+    end)
+
+    -- Draggable
+    local dragging, dragStart, startPos
+    local function updateInput(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateInput(input)
+        end
+    end)
+end
+
+CreateHellgraveGUI()
