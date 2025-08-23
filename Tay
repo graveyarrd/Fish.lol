@@ -9,6 +9,7 @@ local VerticalPrediction = 0.15
 local XPrediction = 0.15 -- Updated value
 local YPrediction = 0.15 -- Updated value
 
+-- Function to find the nearest enemy
 function FindNearestEnemy()
     local ClosestDistance, ClosestPlayer = math.huge, nil
     local CenterPosition = Vector2.new(game:GetService("GuiService"):GetScreenResolution().X / 2, game:GetService("GuiService"):GetScreenResolution().Y / 2)
@@ -41,7 +42,7 @@ RunService.Heartbeat:Connect(function()
         if enemy then
             local camera = workspace.CurrentCamera
             camera.CFrame = CFrame.new(camera.CFrame.p, enemy.Position + enemy.Velocity * Prediction)
-            
+
             if glowingPart then
                 glowingPart.Enabled = true
                 glowingPart.Parent = enemy
@@ -50,19 +51,18 @@ RunService.Heartbeat:Connect(function()
         end
     else
         if glowingPart then
-            glowingPart:Destroy() -- Remove glowing effect by destroying the part
+            glowingPart:Destroy()
         end
     end
 end)
 
+-- GUI Setup
 local HELLBOUND = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local UICorner = Instance.new("UICorner")
 local TextButton = Instance.new("TextButton")
 local UICorner_2 = Instance.new("UICorner")
-local UIStroke = Instance.new("UIStroke")
 
--- Properties:
 HELLBOUND.Name = "HELLBOUND"
 HELLBOUND.Parent = game.CoreGui
 HELLBOUND.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -85,7 +85,7 @@ Frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(TopContainer)
 UICorner.Parent = Frame
 
 TextButton.Parent = Frame
-TextButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80) -- Grey color
+TextButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80) -- Grey button
 TextButton.BackgroundTransparency = 0.3 -- Slight transparency
 TextButton.BorderSizePixel = 0
 TextButton.Position = UDim2.new(0.2, 0, 0.2, 0)
@@ -95,9 +95,7 @@ TextButton.AutoButtonColor = true
 
 UICorner_2.Parent = TextButton
 
-UIStroke:Destroy() -- Removed rainbow effect
-
--- Button functionality:
+-- Button functionality
 TextButton.MouseButton1Click:Connect(function()
     CamlockState = not CamlockState
     enemy = CamlockState and FindNearestEnemy() or nil
