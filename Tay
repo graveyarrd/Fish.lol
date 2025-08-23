@@ -176,7 +176,7 @@ Frame.Parent = HELLBOUND
 Frame.BackgroundTransparency = 1 -- Transparent frame
 Frame.BorderSizePixel = 0
 Frame.Position = UDim2.new(0.3, 0, 0.3, 0) -- Start position
-Frame.Size = UDim2.new(0, 200, 0, 200) -- Bigger area for dragging
+Frame.Size = UDim2.new(0, 70, 0, 70) -- Bigger area for dragging
 Frame.Active = true
 Frame.Draggable = true
 
