@@ -22,6 +22,31 @@ Frame.Position = UDim2.new(0.4, 0, 0.4, 0)
 Frame.Size = UDim2.new(0, 85, 0, 85)
 Frame.Active = true
 Frame.Draggable = true -- ✅ Drag feature
+--// affection.cc custom version
+print("Affection.cc custom version (Dynamic Target, Draggable Fixed)")
+
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+--// GUI Setup
+local gui = Instance.new("ScreenGui")
+gui.Name = "AffectionLockUI"
+gui.Parent = game.CoreGui
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Main Frame
+local Frame = Instance.new("Frame")
+Frame.Parent = gui
+Frame.BackgroundTransparency = 1
+Frame.BorderSizePixel = 0
+Frame.Position = UDim2.new(0.4, 0, 0.4, 0)
+Frame.Size = UDim2.new(0, 85, 0, 85)
+Frame.Active = true
+Frame.Draggable = false -- We'll handle custom drag
 
 local UICorner = Instance.new("UICorner")
 UICorner.Parent = Frame
@@ -40,6 +65,33 @@ local UICorner_2 = Instance.new("UICorner")
 UICorner_2.CornerRadius = UDim.new(0, 12)
 UICorner_2.Parent = TextButton
 
+-- Dragging system
+local dragging = false
+local dragStart, startPos
+
+Frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = Frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        Frame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
 -- Notification Frame
 local notificationFrame = Instance.new("Frame")
 notificationFrame.Size = UDim2.new(0, 180, 1, 0)
@@ -47,7 +99,6 @@ notificationFrame.Position = UDim2.new(1, -200, 0, 20)
 notificationFrame.BackgroundTransparency = 1
 notificationFrame.Parent = gui
 
--- Function for Notifications
 local function showNotification(text)
     local note = Instance.new("TextLabel")
     note.Size = UDim2.new(0, 140, 0, 25)
@@ -81,16 +132,14 @@ showNotification("affection.cc loaded")
 
 -- Camlock Variables
 local camlockEnabled = false
-local lockedPlayer = nil
 
--- Button Click Event
+-- Button Toggle
 TextButton.MouseButton1Click:Connect(function()
     camlockEnabled = not camlockEnabled
-    TextButton.BackgroundColor3 = camlockEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(80, 80, 80)
     showNotification("Camlock " .. (camlockEnabled and "Enabled" or "Disabled"))
 end)
 
--- Function to get closest player
+-- Get Closest Player
 local function getClosestPlayer()
     local closest, shortest = nil, math.huge
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -109,19 +158,13 @@ local function getClosestPlayer()
     return closest
 end
 
--- Render loop for camlock
+-- Render Loop
 RunService.RenderStepped:Connect(function()
     if camlockEnabled then
-        if not lockedPlayer or not lockedPlayer.Character or not lockedPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            lockedPlayer = getClosestPlayer()
-            if lockedPlayer then
-                showNotification("Locked onto " .. lockedPlayer.Name)
-            end
-        end
-
-        if lockedPlayer and lockedPlayer.Character then
-            local humanoid = lockedPlayer.Character:FindFirstChildOfClass("Humanoid")
-            local hrp = lockedPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local target = getClosestPlayer()
+        if target and target.Character then
+            local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = target.Character:FindFirstChild("HumanoidRootPart")
             if humanoid and humanoid.Health > 0 and hrp then
                 local targetPos = hrp.Position
                 local camPos = Camera.CFrame.Position
@@ -129,7 +172,7 @@ RunService.RenderStepped:Connect(function()
                 local newPos = camPos + dir * 0.12
                 Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(newPos, targetPos), 0.9)
 
-                -- Auto Air (always enabled)
+                -- Auto Air
                 if humanoid.FloorMaterial == Enum.Material.Air then
                     local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
                     if tool then tool:Activate() end
