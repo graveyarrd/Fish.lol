@@ -70,8 +70,8 @@ HELLBOUND.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Frame.Parent = HELLBOUND
 Frame.BackgroundTransparency = 1 -- Transparent frame
 Frame.BorderSizePixel = 0
-Frame.Position = UDim2.new(0.3, 0, 0.3, 0) -- Start position
-Frame.Size = UDim2.new(0, 70, 0, 70) -- Bigger area for dragging
+Frame.Position = UDim2.new(0.35, 0, 0.35, 0) -- Centered
+Frame.Size = UDim2.new(0, 120, 0, 120) -- Smaller frame
 Frame.Active = true
 Frame.Draggable = true
 
@@ -82,116 +82,11 @@ TextButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80) -- Grey color
 TextButton.BackgroundTransparency = 0.3 -- Slight transparency
 TextButton.BorderSizePixel = 0
 TextButton.Position = UDim2.new(0, 0, 0, 0)
-TextButton.Size = UDim2.new(1, 0, 1, 0) -- Fills the entire frame (big button)
+TextButton.Size = UDim2.new(1, 0, 1, 0) -- Fill frame
 TextButton.Text = "" -- No text
 TextButton.AutoButtonColor = true
 
-UICorner_2.CornerRadius = UDim.new(0, 12) -- Rounded edges for big button
-UICorner_2.Parent = TextButton
-
--- Button toggle logic
-TextButton.MouseButton1Click:Connect(function()
-    CamlockState = not CamlockState
-    enemy = CamlockState and FindNearestEnemy() or nil
-
-    if CamlockState then
-        glowingPart = Instance.new("SurfaceLight")
-        glowingPart.Color = Color3.fromRGB(0, 0, 255)
-        glowingPart.Brightness = 10
-    else
-        if glowingPart then
-            glowingPart:Destroy()
-        end
-    end
-end)local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Mouse = game.Players.LocalPlayer:GetMouse()
-local CamlockState = false
-local Prediction = 0.2
-local HorizontalPrediction = 0.15
-local VerticalPrediction = 0.15
-local XPrediction = 0.15
-local YPrediction = 0.15
-
--- Function to find nearest enemy
-function FindNearestEnemy()
-    local ClosestDistance, ClosestPlayer = math.huge, nil
-    local CenterPosition = Vector2.new(game:GetService("GuiService"):GetScreenResolution().X / 2, game:GetService("GuiService"):GetScreenResolution().Y / 2)
-
-    for _, Player in ipairs(game:GetService("Players"):GetPlayers()) do
-        if Player ~= LocalPlayer then
-            local Character = Player.Character
-            if Character and Character:FindFirstChild("HumanoidRootPart") and Character.Humanoid.Health > 0 then
-                local Position, IsVisibleOnViewport = game:GetService("Workspace").CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
-                if IsVisibleOnViewport then
-                    local Distance = (CenterPosition - Vector2.new(Position.X, Position.Y)).Magnitude
-                    if Distance < ClosestDistance then
-                        ClosestPlayer = Character.HumanoidRootPart
-                        ClosestDistance = Distance
-                    end
-                end
-            end
-        end
-    end
-
-    return ClosestPlayer
-end
-
-local enemy = nil
-local glowingPart = nil
-
--- Camera lock logic
-RunService.Heartbeat:Connect(function()
-    if CamlockState == true then
-        if enemy then
-            local camera = workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.p, enemy.Position + enemy.Velocity * Prediction)
-
-            if glowingPart then
-                glowingPart.Enabled = true
-                glowingPart.Parent = enemy
-                glowingPart.Face = Enum.NormalId.Front
-            end
-        end
-    else
-        if glowingPart then
-            glowingPart:Destroy()
-        end
-    end
-end)
-
--- GUI setup
-local HELLBOUND = Instance.new("ScreenGui")
-local Frame = Instance.new("Frame")
-local UICorner = Instance.new("UICorner")
-local TextButton = Instance.new("TextButton")
-local UICorner_2 = Instance.new("UICorner")
-
-HELLBOUND.Name = "HELLBOUND"
-HELLBOUND.Parent = game.CoreGui
-HELLBOUND.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-Frame.Parent = HELLBOUND
-Frame.BackgroundTransparency = 1 -- Transparent frame
-Frame.BorderSizePixel = 0
-Frame.Position = UDim2.new(0.3, 0, 0.3, 0) -- Start position
-Frame.Size = UDim2.new(0, 70, 0, 70) -- Bigger area for dragging
-Frame.Active = true
-Frame.Draggable = true
-
-UICorner.Parent = Frame
-
-TextButton.Parent = Frame
-TextButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80) -- Grey color
-TextButton.BackgroundTransparency = 0.3 -- Slight transparency
-TextButton.BorderSizePixel = 0
-TextButton.Position = UDim2.new(0, 0, 0, 0)
-TextButton.Size = UDim2.new(1, 0, 1, 0) -- Fills the entire frame (big button)
-TextButton.Text = "" -- No text
-TextButton.AutoButtonColor = true
-
-UICorner_2.CornerRadius = UDim.new(0, 12) -- Rounded edges for big button
+UICorner_2.CornerRadius = UDim.new(0, 12) -- Rounded edges
 UICorner_2.Parent = TextButton
 
 -- Button toggle logic
