@@ -43,20 +43,24 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = TextButton
 
--- Dragging
-local dragging, dragStart, startPos
+-- Dragging system
+local dragging = false
+local dragStart, startPos
+
 Frame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
         dragStart = input.Position
         startPos = Frame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
     end
 end)
+
+Frame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
 UserInputService.InputChanged:Connect(function(input)
     if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Position - dragStart
