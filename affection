@@ -1,19 +1,23 @@
---// affection.cc custom version
-print("Affection.cc custom version (Prediction + Anti-Ground + Keybind)")
+--// affection.cc custom version (Prediction + Anti-Ground + Auto Unlock + HitPart + AirShoot)
+print("Affection.cc | Custom Version Loaded")
 
---// Services
+--// SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- CONFIG
-local Prediction = 0.125 -- Adjust for ping (0.12-0.16 typical)
-local AntiGroundOffset = Vector3.new(0, 2.5, 0)
-local ToggleKey = Enum.KeyCode.Q -- Keybind for toggle
+--// CONFIG
+local Config = {
+    Prediction = 0.125,                           -- Adjust based on ping
+    AntiGroundOffset = Vector3.new(0, 2.5, 0),   -- Add height if target is grounded
+    ToggleKey = Enum.KeyCode.Q,                  -- Keybind to toggle camlock
+    HitPart = "HumanoidRootPart",                -- "HumanoidRootPart" or "Head"
+    AirShoot = true                              -- Auto-fire when target is airborne
+}
 
---// GUI Setup
+--// UI (Minimal Button + Drag)
 local gui = Instance.new("ScreenGui")
 gui.Name = "AffectionLockUI"
 gui.Parent = game.CoreGui
@@ -22,13 +26,9 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 local Frame = Instance.new("Frame")
 Frame.Parent = gui
 Frame.BackgroundTransparency = 1
-Frame.BorderSizePixel = 0
 Frame.Position = UDim2.new(0.4, 0, 0.4, 0)
 Frame.Size = UDim2.new(0, 85, 0, 85)
 Frame.Active = true
-
-local UICorner = Instance.new("UICorner")
-UICorner.Parent = Frame
 
 local TextButton = Instance.new("TextButton")
 TextButton.Parent = Frame
@@ -39,14 +39,12 @@ TextButton.Size = UDim2.new(1, 0, 1, 0)
 TextButton.Text = ""
 TextButton.AutoButtonColor = true
 
-local UICorner_2 = Instance.new("UICorner")
-UICorner_2.CornerRadius = UDim.new(0, 12)
-UICorner_2.Parent = TextButton
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = TextButton
 
--- Dragging system
-local dragging = false
-local dragStart, startPos
-
+-- Dragging
+local dragging, dragStart, startPos
 Frame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
@@ -59,7 +57,6 @@ Frame.InputBegan:Connect(function(input)
         end)
     end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
     if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Position - dragStart
@@ -70,56 +67,29 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Notifications
-local notificationFrame = Instance.new("Frame")
-notificationFrame.Size = UDim2.new(0, 180, 1, 0)
-notificationFrame.Position = UDim2.new(1, -200, 0, 20)
-notificationFrame.BackgroundTransparency = 1
-notificationFrame.Parent = gui
-
+-- Notification Function
 local function showNotification(text)
-    local note = Instance.new("TextLabel")
-    note.Size = UDim2.new(0, 140, 0, 25)
-    note.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    note.BackgroundTransparency = 0.5
-    note.TextColor3 = Color3.fromRGB(255, 255, 255)
-    note.Font = Enum.Font.GothamBold
-    note.TextSize = 12
-    note.Text = text
-    note.TextXAlignment = Enum.TextXAlignment.Center
-    note.TextYAlignment = Enum.TextYAlignment.Center
-    note.Position = UDim2.new(0, 0, 0, (#notificationFrame:GetChildren() - 1) * 28)
-    note.Parent = notificationFrame
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = note
-
-    task.spawn(function()
-        wait(1.5)
-        for i = 1, 10 do
-            note.TextTransparency = i / 10
-            note.BackgroundTransparency = 0.5 + (i / 10)
-            wait(0.05)
-        end
-        note:Destroy()
-    end)
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Affection.cc",
+        Text = text,
+        Duration = 1.5
+    })
 end
 
-showNotification("affection.cc loaded")
+showNotification("Affection.cc Loaded")
 
--- Camlock Variables
+-- Variables
 local camlockEnabled = false
 local lockedPlayer = nil
 
--- Function to find closest player
+-- Get Closest Player
 local function getClosestPlayer()
     local closest, shortest = nil, math.huge
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local pos, onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Config.HitPart) then
+            local pos, onScreen = Camera:WorldToViewportPoint(p.Character[Config.HitPart].Position)
             if onScreen then
                 local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
                 if dist < 150 and dist < shortest then
@@ -129,11 +99,10 @@ local function getClosestPlayer()
             end
         end
     end
-
     return closest
 end
 
--- Toggle Function
+-- Toggle Camlock
 local function toggleCamlock()
     if not camlockEnabled then
         local target = getClosestPlayer()
@@ -142,7 +111,7 @@ local function toggleCamlock()
             lockedPlayer = target
             showNotification("Locked onto " .. target.Name)
         else
-            showNotification("No player in range")
+            showNotification("No player found")
         end
     else
         camlockEnabled = false
@@ -155,42 +124,59 @@ end
 TextButton.MouseButton1Click:Connect(toggleCamlock)
 
 -- Keybind
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == ToggleKey then
+UserInputService.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == Config.ToggleKey then
         toggleCamlock()
     end
 end)
 
--- Render Loop
+-- Auto-Unlock on Player Leave
+Players.PlayerRemoving:Connect(function(player)
+    if player == lockedPlayer then
+        camlockEnabled = false
+        lockedPlayer = nil
+        showNotification("Target left, lock disabled")
+    end
+end)
+
+-- Respawn Reset
+LocalPlayer.CharacterAdded:Connect(function()
+    camlockEnabled = false
+    lockedPlayer = nil
+    showNotification("You respawned, lock disabled")
+end)
+
+-- RenderStepped Loop
 RunService.RenderStepped:Connect(function()
     if camlockEnabled and lockedPlayer and lockedPlayer.Character then
         local humanoid = lockedPlayer.Character:FindFirstChildOfClass("Humanoid")
-        local hrp = lockedPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local rootVel = hrp and hrp.Velocity
+        local hitPart = lockedPlayer.Character:FindFirstChild(Config.HitPart)
+        local rootVel = hitPart and hitPart.Velocity
 
-        if humanoid and humanoid.Health > 0 and hrp then
+        if humanoid and humanoid.Health > 0 and hitPart then
             -- Prediction
-            local predictedPos = hrp.Position + (rootVel * Prediction)
+            local predictedPos = hitPart.Position + (rootVel * Config.Prediction)
 
-            -- Anti-Ground Shots
+            -- Anti-Ground
             if humanoid.FloorMaterial ~= Enum.Material.Air then
-                predictedPos = predictedPos + AntiGroundOffset
+                predictedPos = predictedPos + Config.AntiGroundOffset
             end
 
+            -- Camera Lock
             local camPos = Camera.CFrame.Position
             local dir = (predictedPos - camPos).Unit
             local newPos = camPos + dir * 0.12
             Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(newPos, predictedPos), 0.9)
 
-            -- Auto Air Fire
-            if humanoid.FloorMaterial == Enum.Material.Air then
+            -- Air Shoot
+            if Config.AirShoot and humanoid.FloorMaterial == Enum.Material.Air then
                 local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
                 if tool then tool:Activate() end
             end
         else
             camlockEnabled = false
             lockedPlayer = nil
-            showNotification("Target lost, lock disabled")
+            showNotification("Target died, lock disabled")
         end
     end
 end)
