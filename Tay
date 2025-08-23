@@ -1,13 +1,9 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = game.Players.LocalPlayer:GetMouse()
 local CamlockState = false
 local Prediction = 0.2
-local HorizontalPrediction = 0.15
-local VerticalPrediction = 0.15
-local XPrediction = 0.15
-local YPrediction = 0.15
 
 -- Function to find nearest enemy
 function FindNearestEnemy()
@@ -38,21 +34,9 @@ local glowingPart = nil
 
 -- Camera lock logic
 RunService.Heartbeat:Connect(function()
-    if CamlockState == true then
-        if enemy then
-            local camera = workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.p, enemy.Position + enemy.Velocity * Prediction)
-
-            if glowingPart then
-                glowingPart.Enabled = true
-                glowingPart.Parent = enemy
-                glowingPart.Face = Enum.NormalId.Front
-            end
-        end
-    else
-        if glowingPart then
-            glowingPart:Destroy()
-        end
+    if CamlockState and enemy then
+        local camera = workspace.CurrentCamera
+        camera.CFrame = CFrame.new(camera.CFrame.p, enemy.Position + enemy.Velocity * Prediction)
     end
 end)
 
@@ -70,10 +54,9 @@ HELLBOUND.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Frame.Parent = HELLBOUND
 Frame.BackgroundTransparency = 1 -- Transparent frame
 Frame.BorderSizePixel = 0
-Frame.Position = UDim2.new(0.35, 0, 0.35, 0) -- Centered
-Frame.Size = UDim2.new(0, 120, 0, 120) -- Smaller frame
+Frame.Position = UDim2.new(0.4, 0, 0.4, 0) -- Starting position
+Frame.Size = UDim2.new(0, 85, 0, 85) -- 85x85
 Frame.Active = true
-Frame.Draggable = true
 
 UICorner.Parent = Frame
 
@@ -86,21 +69,46 @@ TextButton.Size = UDim2.new(1, 0, 1, 0) -- Fill frame
 TextButton.Text = "" -- No text
 TextButton.AutoButtonColor = true
 
-UICorner_2.CornerRadius = UDim.new(0, 12) -- Rounded edges
+UICorner_2.CornerRadius = UDim.new(0, 12)
 UICorner_2.Parent = TextButton
 
 -- Button toggle logic
 TextButton.MouseButton1Click:Connect(function()
     CamlockState = not CamlockState
     enemy = CamlockState and FindNearestEnemy() or nil
+end)
 
-    if CamlockState then
-        glowingPart = Instance.new("SurfaceLight")
-        glowingPart.Color = Color3.fromRGB(0, 0, 255)
-        glowingPart.Brightness = 10
-    else
-        if glowingPart then
-            glowingPart:Destroy()
-        end
+-- Custom dragging system
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+Frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Frame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+Frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
     end
 end)
