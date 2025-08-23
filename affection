@@ -157,7 +157,7 @@ RunService.RenderStepped:Connect(function()
         local hitPart = lockedPlayer.Character:FindFirstChild(Config.HitPart)
         local rootVel = hitPart and hitPart.Velocity
 
-        if humanoid and humanoid.Health > 0 and hitPart then
+        if humanoid and humanoid.Health > 5 and hitPart then
             -- Prediction
             local predictedPos = hitPart.Position + (rootVel * Config.Prediction)
 
