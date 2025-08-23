@@ -1,0 +1,162 @@
+--// fuji.cc custom version
+print("Fuji.cc custom version with round buttons")
+
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+--// UI Root
+local camlockGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+camlockGui.Name = "FujiLockUI"
+camlockGui.ResetOnSpawn = false
+camlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+--// Notification System
+local notificationFrame = Instance.new("Frame")
+notificationFrame.Size = UDim2.new(0, 200, 1, 0)
+notificationFrame.Position = UDim2.new(1, -220, 0, 20)
+notificationFrame.BackgroundTransparency = 1
+notificationFrame.Parent = camlockGui
+
+local function showNotification(text)
+    local note = Instance.new("TextLabel")
+    note.Size = UDim2.new(0, 200, 0, 30)
+    note.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    note.TextColor3 = Color3.fromRGB(255, 255, 255)
+    note.Font = Enum.Font.GothamBold
+    note.TextSize = 14
+    note.Text = text
+    note.TextXAlignment = Enum.TextXAlignment.Left
+    note.Position = UDim2.new(0, 0, 0, #notificationFrame:GetChildren() * 32)
+    note.Parent = notificationFrame
+    Instance.new("UICorner", note)
+
+    task.spawn(function()
+        wait(1.5)
+        for i = 1, 10 do
+            note.TextTransparency = i / 10
+            note.BackgroundTransparency = i / 10
+            wait(0.05)
+        end
+        note:Destroy()
+    end)
+end
+
+showNotification("fuji.cc custom version loaded")
+
+--// Button Container
+local buttonFrame = Instance.new("Frame")
+buttonFrame.Size = UDim2.new(0, 70, 0, 200)
+buttonFrame.Position = UDim2.new(1, -80, 0.4, 0)
+buttonFrame.BackgroundTransparency = 1
+buttonFrame.Parent = camlockGui
+
+--// UIListLayout for vertical alignment
+local listLayout = Instance.new("UIListLayout")
+listLayout.Parent = buttonFrame
+listLayout.Padding = UDim.new(0, 10)
+listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+listLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+
+--// Function to create round button
+local function createRoundButton(name, color)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 60, 0, 60)
+    btn.BackgroundColor3 = color or Color3.fromRGB(40, 40, 40)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 14
+    btn.Text = name
+    btn.Parent = buttonFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0) -- Perfect circle
+    corner.Parent = btn
+
+    return btn
+end
+
+--// Camlock Button
+local camlockEnabled = false
+local lockedPlayer = nil
+local camlockButton = createRoundButton("CL", Color3.fromRGB(60, 60, 60))
+
+--// Auto Shoot Button
+local autoShoot = false
+local autoShootButton = createRoundButton("AS", Color3.fromRGB(60, 60, 60))
+
+camlockButton.MouseButton1Click:Connect(function()
+    camlockEnabled = not camlockEnabled
+    camlockButton.BackgroundColor3 = camlockEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60, 60, 60)
+    if camlockEnabled then
+        lockedPlayer = nil
+        showNotification("Camlock Enabled")
+    else
+        lockedPlayer = nil
+        showNotification("Camlock Disabled")
+    end
+end)
+
+autoShootButton.MouseButton1Click:Connect(function()
+    autoShoot = not autoShoot
+    autoShootButton.BackgroundColor3 = autoShoot and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60, 60, 60)
+    showNotification("Auto Shoot " .. (autoShoot and "Enabled" or "Disabled"))
+end)
+
+--// Function to get closest player
+local function getClosestPlayer()
+    local closest, shortest = nil, math.huge
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local pos, onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
+                if dist < 150 and dist < shortest then
+                    shortest = dist
+                    closest = p
+                end
+            end
+        end
+    end
+    return closest
+end
+
+--// Render loop
+RunService.RenderStepped:Connect(function()
+    if camlockEnabled then
+        if not lockedPlayer or not lockedPlayer.Character or not lockedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            lockedPlayer = getClosestPlayer()
+            if lockedPlayer then
+                showNotification("Locked onto " .. lockedPlayer.Name)
+            end
+        end
+
+        if lockedPlayer and lockedPlayer.Character then
+            local humanoid = lockedPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = lockedPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if humanoid and humanoid.Health > 0 and hrp then
+                -- Camlock
+                local targetPos = hrp.Position
+                local camPos = Camera.CFrame.Position
+                local dir = (targetPos - camPos).Unit
+                local newPos = camPos + dir * 0.12
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(newPos, targetPos), 0.9)
+
+                -- Auto Air (always enabled)
+                if humanoid.FloorMaterial == Enum.Material.Air then
+                    local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                    if tool then tool:Activate() end
+                end
+
+                -- Auto Shoot
+                if autoShoot then
+                    local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                    if tool then tool:Activate() end
+                end
+            end
+        end
+    end
+end)
