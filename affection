@@ -17,7 +17,7 @@ local Config = {
     AirShoot = true                              -- Auto-fire when target is airborne
 }
 
---// UI (Minimal Button + Drag)
+--// GUI Setup
 local gui = Instance.new("ScreenGui")
 gui.Name = "AffectionLockUI"
 gui.Parent = game.CoreGui
@@ -26,9 +26,13 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 local Frame = Instance.new("Frame")
 Frame.Parent = gui
 Frame.BackgroundTransparency = 1
+Frame.BorderSizePixel = 0
 Frame.Position = UDim2.new(0.4, 0, 0.4, 0)
 Frame.Size = UDim2.new(0, 85, 0, 85)
-Frame.Active = true
+Frame.Active = true -- IMPORTANT for dragging!
+
+local UICorner = Instance.new("UICorner")
+UICorner.Parent = Frame
 
 local TextButton = Instance.new("TextButton")
 TextButton.Parent = Frame
@@ -39,16 +43,19 @@ TextButton.Size = UDim2.new(1, 0, 1, 0)
 TextButton.Text = ""
 TextButton.AutoButtonColor = true
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 12)
-UICorner.Parent = TextButton
+local UICorner_2 = Instance.new("UICorner")
+UICorner_2.CornerRadius = UDim.new(0, 12)
+UICorner_2.Parent = TextButton
 
--- Dragging system
+-- ✅ Add this Drag Handler BELOW the UI creation:
+local UserInputService = game:GetService("UserInputService")
+
 local dragging = false
 local dragStart, startPos
 
 Frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 
+    or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = Frame.Position
@@ -56,13 +63,15 @@ Frame.InputBegan:Connect(function(input)
 end)
 
 Frame.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 
+    or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement 
+    or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
         Frame.Position = UDim2.new(
             startPos.X.Scale, startPos.X.Offset + delta.X,
