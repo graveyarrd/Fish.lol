@@ -69,6 +69,7 @@ HELLBOUND.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 Frame.Parent = HELLBOUND
 Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 255) -- Blue color
+Frame.BackgroundTransparency = 1 -- FULLY TRANSPARENT
 Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 Frame.BorderSizePixel = 0
 Frame.Position = UDim2.new(0.133798108, 0, 0.20107238, 0)
@@ -87,13 +88,13 @@ UICorner.Parent = Frame
 
 TextButton.Parent = Frame
 TextButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-TextButton.BackgroundTransparency = 5.000
+TextButton.BackgroundTransparency = 1 -- FULLY TRANSPARENT
 TextButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
 TextButton.BorderSizePixel = 0
 TextButton.Position = UDim2.new(0.0792079195, 0, 0.18571429, 0)
 TextButton.Size = UDim2.new(0, 170, 0, 44)
 TextButton.Font = Enum.Font.SourceSansSemibold
-TextButton.Text = "HELLBOUND OFF" -- Changed text
+TextButton.Text = "HELLBOUND OFF"
 TextButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextButton.TextScaled = true
 TextButton.TextSize = 11.000
