@@ -1,4 +1,4 @@
---// Affection.cc Custom Version (Prediction + Anti-Ground + Auto Unlock + HitPart + AirShoot)
+--// affection.cc custom version (Prediction + Anti-Ground + Auto Unlock + AirShoot)
 print("Affection.cc | Custom Version Loaded")
 
 --// SERVICES
@@ -11,31 +11,29 @@ local LocalPlayer = Players.LocalPlayer
 
 --// CONFIG
 local Config = {
-    Prediction = 0.125,                           -- Adjust based on ping
-    AntiGroundOffset = Vector3.new(0, 2.5, 0),   -- Add height if target is grounded
-    ToggleKey = Enum.KeyCode.Q,                  -- Keybind to toggle camlock
-    HitPart = "HumanoidRootPart",                -- "HumanoidRootPart" or "Head"
-    AirShoot = true                              -- Auto-fire when target is airborne
+    Prediction = 0.125,                           -- Adjust for ping
+    AntiGround = true,                            -- ✅ Toggle Anti-Ground ON/OFF
+    AntiGroundOffset = Vector3.new(0, 2.5, 0),   -- Height adjustment if AntiGround = true
+    ToggleKey = Enum.KeyCode.Q,                  -- Keybind for toggle
+    HitPart = "HumanoidRootPart",                -- Lock target part
+    AirShoot = true                              -- Auto shoot in air
 }
 
 --// Notification
 local function showNotification(text)
-    pcall(function()
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Affection.cc",
-            Text = text,
-            Duration = 1.8
-        })
-    end)
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Affection.cc",
+        Text = text,
+        Duration = 1.5
+    })
 end
-
 showNotification("Affection.cc Loaded")
 
--- Variables
+--// Variables
 local camlockEnabled = false
 local lockedPlayer = nil
 
---// Create GUI
+--// GUI (with your Hellgrave style but Affection name)
 local function CreateAffectionGUI()
     local affectionGui = Instance.new("ScreenGui")
     affectionGui.ResetOnSpawn = false
@@ -58,25 +56,19 @@ local function CreateAffectionGUI()
     affectionLogo.Size = UDim2.new(0, 140, 0, 50)
     affectionLogo.Position = UDim2.new(0.1, 0, 0.15, 0)
     affectionLogo.BackgroundTransparency = 1
-    affectionLogo.Image = "rbxassetid://88724352247002" -- Replace with your preferred image
+    affectionLogo.Image = "rbxassetid://88724352247002" -- Replace with your logo asset
     affectionLogo.Parent = affectionFrame
 
     local logoCorner = Instance.new("UICorner")
     logoCorner.CornerRadius = UDim.new(0.2, 0)
     logoCorner.Parent = affectionLogo
 
-    -- Color stays neutral (no green)
-    local function UpdateUIColor(active)
-        local targetColor = active and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(255, 255, 255)
-        TweenService:Create(affectionLogo, TweenInfo.new(0.3), { ImageColor3 = targetColor }):Play()
-    end
-
+    -- Button Click
     affectionLogo.MouseButton1Click:Connect(function()
         toggleCamlock()
-        UpdateUIColor(camlockEnabled)
     end)
 
-    -- Dragging logic
+    -- Dragging
     local dragging, dragStart, startPos
     local function updateInput(input)
         local delta = input.Position - dragStart
@@ -103,7 +95,7 @@ local function CreateAffectionGUI()
     end)
 end
 
--- Call GUI
+--// Create GUI
 CreateAffectionGUI()
 
 --// Get Closest Player
@@ -144,14 +136,14 @@ function toggleCamlock()
     end
 end
 
--- Keybind
+--// Keybind
 UserInputService.InputBegan:Connect(function(input, gp)
     if not gp and input.KeyCode == Config.ToggleKey then
         toggleCamlock()
     end
 end)
 
--- Auto-Unlock on Player Leave
+--// Auto-Unlock on Player Leave
 Players.PlayerRemoving:Connect(function(player)
     if player == lockedPlayer then
         camlockEnabled = false
@@ -160,32 +152,18 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
--- Disable on Death
-local function monitorHealth()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoid = char:WaitForChild("Humanoid")
-
-    humanoid.Died:Connect(function()
-        if camlockEnabled then
+--// Unlock if LocalPlayer Dies
+RunService.Heartbeat:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        if LocalPlayer.Character.Humanoid.Health <= 3 and camlockEnabled then
             camlockEnabled = false
             lockedPlayer = nil
             showNotification("You died, lock disabled")
         end
-    end)
-end
-
-LocalPlayer.CharacterAdded:Connect(function()
-    monitorHealth()
-    camlockEnabled = false
-    lockedPlayer = nil
-    showNotification("You respawned, lock disabled")
+    end
 end)
 
-if LocalPlayer.Character then
-    monitorHealth()
-end
-
---// RenderStepped Loop
+--// RenderStepped (Main Lock Logic)
 RunService.RenderStepped:Connect(function()
     if camlockEnabled and lockedPlayer and lockedPlayer.Character then
         local humanoid = lockedPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -196,8 +174,8 @@ RunService.RenderStepped:Connect(function()
             -- Prediction
             local predictedPos = hitPart.Position + (rootVel * Config.Prediction)
 
-            -- Anti-Ground
-            if humanoid.FloorMaterial ~= Enum.Material.Air then
+            -- ✅ Anti-Ground only if enabled
+            if Config.AntiGround and humanoid.FloorMaterial ~= Enum.Material.Air then
                 predictedPos = predictedPos + Config.AntiGroundOffset
             end
 
