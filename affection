@@ -5,6 +5,7 @@ print("Affection.cc | Custom Version Loaded")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -18,18 +19,27 @@ local Config = {
     AirShoot = true                              -- Auto shoot in air
 }
 
+--// Notification
+local function showNotification(text)
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Affection.cc",
+        Text = text,
+        Duration = 1.5
+    })
+end
+showNotification("Affection.cc Loaded")
+
 --// Variables
 local camlockEnabled = false
 local lockedPlayer = nil
 
---// GUI Creation
+--// GUI (with your Hellgrave style but Affection name)
 local function CreateAffectionGUI()
     local affectionGui = Instance.new("ScreenGui")
     affectionGui.ResetOnSpawn = false
     affectionGui.Name = "AffectionGUI"
     affectionGui.Parent = game.CoreGui
 
-    -- Main Frame
     local affectionFrame = Instance.new("Frame")
     affectionFrame.Size = UDim2.new(0, 180, 0, 70)
     affectionFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
@@ -42,7 +52,6 @@ local function CreateAffectionGUI()
     uiCorner.CornerRadius = UDim.new(0, 12)
     uiCorner.Parent = affectionFrame
 
-    -- Logo/Button
     local affectionLogo = Instance.new("ImageButton")
     affectionLogo.Size = UDim2.new(0, 140, 0, 50)
     affectionLogo.Position = UDim2.new(0.1, 0, 0.15, 0)
@@ -54,6 +63,11 @@ local function CreateAffectionGUI()
     logoCorner.CornerRadius = UDim.new(0.2, 0)
     logoCorner.Parent = affectionLogo
 
+    -- Button Click
+    affectionLogo.MouseButton1Click:Connect(function()
+        toggleCamlock()
+    end)
+
     -- Dragging
     local dragging, dragStart, startPos
     local function updateInput(input)
@@ -62,7 +76,7 @@ local function CreateAffectionGUI()
     end
 
     affectionFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = affectionFrame.Position
@@ -75,62 +89,14 @@ local function CreateAffectionGUI()
     end)
 
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             updateInput(input)
         end
     end)
-
-    -- Notifications Container
-    local notificationFrame = Instance.new("Frame")
-    notificationFrame.Size = UDim2.new(0, 180, 1, 0)
-    notificationFrame.Position = UDim2.new(1, -200, 0, 20)
-    notificationFrame.BackgroundTransparency = 1
-    notificationFrame.Parent = affectionGui
-
-    -- Custom Notification Function
-    function showNotification(text)
-        local note = Instance.new("TextLabel")
-        note.Size = UDim2.new(0, 140, 0, 25)
-        note.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        note.BackgroundTransparency = 0.5
-        note.TextColor3 = Color3.fromRGB(255, 255, 255)
-        note.Font = Enum.Font.GothamBold
-        note.TextSize = 12
-        note.Text = text
-        note.TextXAlignment = Enum.TextXAlignment.Center
-        note.TextYAlignment = Enum.TextYAlignment.Center
-        note.Position = UDim2.new(0, 0, 0, (#notificationFrame:GetChildren() - 1) * 28)
-        note.Parent = notificationFrame
-
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = note
-
-        local blur = Instance.new("UIStroke", note)
-        blur.Thickness = 1
-        blur.Color = Color3.fromRGB(255, 255, 255)
-        blur.Transparency = 0.8
-
-        task.spawn(function()
-            wait(1.5)
-            for i = 1, 10 do
-                note.TextTransparency = i / 10
-                note.BackgroundTransparency = 0.5 + (i / 10)
-                wait(0.05)
-            end
-            note:Destroy()
-        end)
-    end
-
-    -- Button Click = Toggle Lock
-    affectionLogo.MouseButton1Click:Connect(function()
-        toggleCamlock()
-    end)
 end
 
--- Create GUI & Notification System
+--// Create GUI
 CreateAffectionGUI()
-showNotification("Affection.cc Loaded")
 
 --// Get Closest Player
 local function getClosestPlayer()
