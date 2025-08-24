@@ -1,3 +1,39 @@
+--// Intro GUI & Sound with spinning image
+local player = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+local gui = Instance.new("ScreenGui")
+gui.Parent = game:GetService("CoreGui") -- Hide from detection
+
+local imageLabel = Instance.new("ImageLabel")
+imageLabel.Parent = gui
+imageLabel.Size = UDim2.new(0, 150, 0, 150)
+imageLabel.Position = UDim2.new(0.5, -75, 0.5, -75)
+imageLabel.Image = "rbxassetid://106379881817322" -- Replace with actual asset ID
+imageLabel.BackgroundTransparency = 1
+imageLabel.ScaleType = Enum.ScaleType.Fit
+imageLabel.Rotation = 0
+
+local sound = Instance.new("Sound")
+sound.Parent = gui
+sound.SoundId = "rbxassetid://130809871712701" -- Replace with actual asset ID
+sound:Play()
+
+local rotation = 0
+local spinConnection
+
+-- Spin the image 180 degrees per second
+spinConnection = RunService.RenderStepped:Connect(function(deltaTime)
+    rotation = (rotation + 180 * deltaTime) % 360
+    imageLabel.Rotation = rotation
+end)
+
+task.wait(3)
+
+spinConnection:Disconnect()
+imageLabel:Destroy()
+sound:Stop()
+sound:Destroy()
+
 --// affection.cc custom version (Prediction + Anti-Ground + Auto Unlock + AirShoot)
 print("Affection.cc | Custom Version Loaded")
 
