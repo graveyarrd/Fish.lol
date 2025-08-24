@@ -1,3 +1,62 @@
+local function playIntro()
+    local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "IntroScreen"
+    screenGui.Parent = playerGui
+
+    local frame = Instance.new("Frame")
+    frame.Name = "IntroFrame"
+    frame.Parent = screenGui
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+
+    local imageLabel = Instance.new("ImageLabel")
+    imageLabel.Name = "IntroImage"
+    imageLabel.Parent = frame
+    imageLabel.Size = UDim2.new(0.4, 0, 0.4, 0)
+    imageLabel.Position = UDim2.new(0.3, 0, 0.3, 0)
+    imageLabel.Image = "rbxassetid://95851502719753"
+    imageLabel.BackgroundTransparency = 1
+    imageLabel.ImageTransparency = 1
+
+    local sound = Instance.new("Sound")
+    sound.Name = "IntroSound"
+    sound.Parent = frame
+    sound.SoundId = "rbxassetid://7752740263"
+    sound.Volume = 1
+    sound:Play()
+
+    local tweenService = game:GetService("TweenService")
+
+    local blurEffect = Instance.new("BlurEffect")
+    blurEffect.Parent = game.Lighting
+    blurEffect.Size = 24
+
+    local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+    local fadeIn = tweenService:Create(imageLabel, tweenInfo, {ImageTransparency = 0.5})
+    local fadeOut = tweenService:Create(imageLabel, tweenInfo, {ImageTransparency = 1})
+    local blurTween = tweenService:Create(blurEffect, TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = 0})
+
+    fadeIn:Play()
+    fadeIn.Completed:Wait()
+
+    wait(2)
+
+    fadeOut:Play()
+    fadeOut.Completed:Wait()
+
+    blurTween:Play()
+    blurTween.Completed:Wait()
+
+    blurEffect:Destroy()
+    screenGui:Destroy()
+end
+
+-- Play Intro
+playIntro()
+
 --// affection.cc custom version (Prediction + Anti-Ground + Auto Unlock + AirShoot)
 print("Affection.cc | Custom Version Loaded")
 
