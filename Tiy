@@ -1,0 +1,294 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local CamlockState = false
+
+-- Prediction & Smoothing
+local XPrediction = 0.122364283
+local YPrediction = 0.1234252574
+local JumpOffset = -0.48
+local FallOffset = 0.04
+local SmoothingFactor = 1
+
+-- Toggles
+getgenv().Key = "q"
+getgenv().Hellgrave = getgenv().Hellgrave or {}
+getgenv().Hellgrave.NoGroundShot = true
+local AutoAirActive = true
+
+-- Notification Function
+local function SendNotification(text, duration)
+    pcall(function()
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "[Hellgrave]",
+            Text = text,
+            Duration = duration or 2
+        })
+    end)
+end
+
+-- Function to find nearest enemy
+local function FindNearestEnemy()
+    local ClosestDistance, ClosestPlayer = math.huge, nil
+    local CenterPosition = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer then
+            local Character = Player.Character
+            local HRP = Character and Character:FindFirstChild("HumanoidRootPart")
+            local Humanoid = Character and Character:FindFirstChild("Humanoid")
+
+            if HRP and Humanoid and Humanoid.Health > 0 then
+                local Position, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+                if OnScreen then
+                    local Distance = (CenterPosition - Vector2.new(Position.X, Position.Y)).Magnitude
+                    if Distance < ClosestDistance then
+                        ClosestPlayer = HRP
+                        ClosestDistance = Distance
+                    end
+                end
+            end
+        end
+    end
+    return ClosestPlayer
+end
+
+local enemy = nil
+
+-- Smooth Camlock with axis prediction, vertical offset, and resolver-like logic
+local function SmoothCamLock(target)
+    if target and target.Parent then
+        local velocity = target.Velocity
+        local verticalVelocity = velocity.Y
+        local isJumping = verticalVelocity > 1
+        local isFalling = verticalVelocity < -1
+
+        local predictedPosition = Vector3.new(
+            target.Position.X + (velocity.X * XPrediction),
+            target.Position.Y + (velocity.Y * YPrediction),
+            target.Position.Z + (velocity.Z * XPrediction)
+        )
+
+        if isJumping then
+            predictedPosition = predictedPosition + Vector3.new(0, JumpOffset, 0)
+        elseif isFalling then
+            predictedPosition = predictedPosition - Vector3.new(0, FallOffset, 0)
+        end
+
+        local newCFrame = CFrame.new(Camera.CFrame.Position, predictedPosition)
+        Camera.CFrame = Camera.CFrame:Lerp(newCFrame, SmoothingFactor)
+    end
+end
+
+-- Camlock Loop
+task.spawn(function()
+    while true do
+        if CamlockState and enemy then
+            SmoothCamLock(enemy)
+        end
+        task.wait(0.01)
+    end
+end)
+
+-- Toggle Camlock with keybind
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode[getgenv().Key:upper()] then
+        if CamlockState then
+            CamlockState = false
+            enemy = nil
+        else
+            CamlockState = true
+            local v = FindNearestEnemy()
+            enemy = v
+            if v and v.Parent then
+                local displayName = v.Parent:FindFirstChild("Humanoid") and v.Parent.Humanoid.DisplayName or v.Parent.Name
+                SendNotification("Locked onto " .. tostring(displayName) .. ".", 2)
+            end
+        end
+    end
+end)
+
+-- Anti Ground Logic
+local function ApplyAntiGround()
+    local character = LocalPlayer.Character
+    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        local velocity = humanoidRootPart.Velocity
+        local SigmaAir = humanoidRootPart.Position.Y > 2
+        if not SigmaAir and velocity.Y < -3 then
+            if getgenv().Hellgrave.NoGroundShot then
+                humanoidRootPart.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
+            end
+        elseif not getgenv().Hellgrave.NoGroundShot then
+            humanoidRootPart.Velocity = Vector3.new(velocity.X, velocity.Y, velocity.Z)
+        end
+    end
+end
+
+-- Auto-Air Activation on enemy Freefall
+local canActivate = true
+RunService.Stepped:Connect(function()
+    local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
+    if enemy and enemy.Parent then
+        local humanoid = enemy.Parent:FindFirstChild("Humanoid")
+        if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall and tool and AutoAirActive and canActivate then
+            canActivate = false
+            task.delay(0.181, function()
+                tool:Activate()
+                task.delay(0.37, function()
+                    canActivate = true
+                end)
+            end)
+        end
+    end
+    ApplyAntiGround()
+end)
+
+-- GUI Creation
+local function CreateHellgraveGUI()
+    local hellgraveGui = Instance.new("ScreenGui")
+    hellgraveGui.ResetOnSpawn = false
+    hellgraveGui.Name = "HellgraveGUI"
+    hellgraveGui.Parent = game.CoreGui
+
+    local hellgraveFrame = Instance.new("Frame")
+    hellgraveFrame.Size = UDim2.new(0, 180, 0, 70)
+    hellgraveFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
+    hellgraveFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    hellgraveFrame.BackgroundTransparency = 0.3
+    hellgraveFrame.BorderSizePixel = 0
+    hellgraveFrame.Parent = hellgraveGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 12)
+    uiCorner.Parent = hellgraveFrame
+
+    local hellgraveLogo = Instance.new("ImageButton")
+    hellgraveLogo.Size = UDim2.new(0, 140, 0, 50)
+    hellgraveLogo.Position = UDim2.new(0.1, 0, 0.15, 0)
+    hellgraveLogo.BackgroundTransparency = 1
+    hellgraveLogo.Image = "rbxassetid://88724352247002"
+    hellgraveLogo.Parent = hellgraveFrame
+
+    local logoCorner = Instance.new("UICorner")
+    logoCorner.CornerRadius = UDim.new(0.2, 0)
+    logoCorner.Parent = hellgraveLogo
+
+    local function UpdateUIColor(active)
+        local targetColor = active and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(hellgraveLogo, TweenInfo.new(0.3), { ImageColor3 = targetColor }):Play()
+    end
+
+    hellgraveLogo.MouseButton1Click:Connect(function()
+        CamlockState = not CamlockState
+        enemy = CamlockState and FindNearestEnemy() or nil
+        UpdateUIColor(CamlockState)
+    end)
+
+    local dragging, dragStart, startPos
+    local function updateInput(input)
+        local delta = input.Position - dragStart
+        hellgraveFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    hellgraveFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = hellgraveFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateInput(input)
+        end
+    end)
+end
+
+CreateHellgraveGUI()
+
+-- Auto Air GUI
+local function CreateAutoAirGUI()
+    local hellgraveGui = Instance.new("ScreenGui")
+    hellgraveGui.ResetOnSpawn = false
+    hellgraveGui.Name = "HellgraveAutoAirGUI"
+    hellgraveGui.Parent = game.CoreGui
+
+    local hellgraveFrame = Instance.new("Frame")
+    hellgraveFrame.Size = UDim2.new(0, 90, 0, 40)
+    hellgraveFrame.Position = UDim2.new(0.4, 190, 0.4, 0)
+    hellgraveFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    hellgraveFrame.BackgroundTransparency = 0.3
+    hellgraveFrame.BorderSizePixel = 0
+    hellgraveFrame.Parent = hellgraveGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 10)
+    uiCorner.Parent = hellgraveFrame
+
+    local hellgraveButton = Instance.new("TextButton")
+    hellgraveButton.Size = UDim2.new(0, 70, 0, 24)
+    hellgraveButton.Position = UDim2.new(0.5, -35, 0.5, -12)
+    hellgraveButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    hellgraveButton.BackgroundTransparency = 0.1
+    hellgraveButton.BorderSizePixel = 0
+    hellgraveButton.Text = "Auto air"
+    hellgraveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    hellgraveButton.TextSize = 12
+    hellgraveButton.Font = Enum.Font.GothamSemibold
+    hellgraveButton.Parent = hellgraveFrame
+
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0.2, 0)
+    buttonCorner.Parent = hellgraveButton
+
+    -- Toggle AutoAirActive
+    hellgraveButton.MouseButton1Click:Connect(function()
+        AutoAirActive = not AutoAirActive
+        hellgraveButton.TextColor3 = AutoAirActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+    end)
+
+    -- Draggable support
+    local dragging, dragStart, startPos
+    local function updateInput(input)
+        local delta = input.Position - dragStart
+        hellgraveFrame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+
+    hellgraveFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = hellgraveFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateInput(input)
+        end
+    end)
+end
+
+CreateAutoAirGUI()
