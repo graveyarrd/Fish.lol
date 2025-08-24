@@ -1,84 +1,102 @@
---// Affection.cc | Clean & Optimized Version
-print("Affection.cc | Loaded")
+--// Affection.cc Custom Version (Hellgrave GUI + Prediction + Anti-Ground + Auto-Unlock + AirShoot)
+print("Affection.cc | Custom Version Loaded")
 
---// SERVICES
+--// Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
---// CONFIG (Mist Style)
-getgenv().Affection = {
-    Keybind = Enum.KeyCode.Q,
-    Prediction = 0.125,
-    HitPart = "HumanoidRootPart", -- or "Head"
-    AntiGround = true, -- toggle ON/OFF
-    AirShoot = true
+--// Config
+local Config = {
+    Prediction = 0.125,                           
+    AntiGroundOffset = Vector3.new(0, 2.5, 0),   
+    ToggleKey = Enum.KeyCode.Q,                  
+    HitPart = "HumanoidRootPart",                
+    AirShoot = true                              
 }
 
---// UI Setup
-local AffectionUI = Instance.new("ScreenGui")
-AffectionUI.Name = "AffectionUI"
-AffectionUI.Parent = game.CoreGui
-AffectionUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Variables
+local camlockEnabled = false
+local lockedPlayer = nil
 
-local Frame = Instance.new("Frame")
-Frame.Parent = AffectionUI
-Frame.BackgroundTransparency = 1
-Frame.BorderSizePixel = 0
-Frame.Position = UDim2.new(0.4, 0, 0.4, 0)
-Frame.Size = UDim2.new(0, 85, 0, 85)
-Frame.Active = true
+--// GUI Creation
+local function CreateAffectionGUI()
+    local affectionGui = Instance.new("ScreenGui")
+    affectionGui.ResetOnSpawn = false
+    affectionGui.Name = "AffectionGUI"
+    affectionGui.Parent = game.CoreGui
 
-local UICorner = Instance.new("UICorner")
-UICorner.Parent = Frame
+    local affectionFrame = Instance.new("Frame")
+    affectionFrame.Size = UDim2.new(0, 180, 0, 70)
+    affectionFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
+    affectionFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    affectionFrame.BackgroundTransparency = 0.3
+    affectionFrame.BorderSizePixel = 0
+    affectionFrame.Parent = affectionGui
 
-local Button = Instance.new("TextButton")
-Button.Parent = Frame
-Button.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-Button.BackgroundTransparency = 0.3
-Button.BorderSizePixel = 0
-Button.Size = UDim2.new(1, 0, 1, 0)
-Button.Text = ""
-Button.AutoButtonColor = true
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 12)
+    uiCorner.Parent = affectionFrame
 
-local UICorner_2 = Instance.new("UICorner")
-UICorner_2.CornerRadius = UDim.new(0, 12)
-UICorner_2.Parent = Button
+    local affectionLogo = Instance.new("ImageButton")
+    affectionLogo.Size = UDim2.new(0, 140, 0, 50)
+    affectionLogo.Position = UDim2.new(0.1, 0, 0.15, 0)
+    affectionLogo.BackgroundTransparency = 1
+    affectionLogo.Image = "rbxassetid://88724352247002" -- replace with your image
+    affectionLogo.Parent = affectionFrame
 
---// DRAG HANDLER
-local dragging, dragStart, startPos
-Frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = Frame.Position
+    local logoCorner = Instance.new("UICorner")
+    logoCorner.CornerRadius = UDim.new(0.2, 0)
+    logoCorner.Parent = affectionLogo
+
+    local function UpdateUIColor(active)
+        local targetColor = active and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+        TweenService:Create(affectionLogo, TweenInfo.new(0.3), { ImageColor3 = targetColor }):Play()
     end
-end)
 
-Frame.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
+    affectionLogo.MouseButton1Click:Connect(function()
+        toggleCamlock()
+        UpdateUIColor(camlockEnabled)
+    end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+    -- Dragging
+    local dragging, dragStart, startPos
+    local function updateInput(input)
         local delta = input.Position - dragStart
-        Frame.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
+        affectionFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
-end)
 
---// Notification System (Custom)
+    affectionFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = affectionFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateInput(input)
+        end
+    end)
+end
+
+CreateAffectionGUI()
+
+-- Notification System (Custom)
 local notificationFrame = Instance.new("Frame")
 notificationFrame.Size = UDim2.new(0, 180, 1, 0)
 notificationFrame.Position = UDim2.new(1, -200, 0, 20)
 notificationFrame.BackgroundTransparency = 1
-notificationFrame.Parent = AffectionUI
+notificationFrame.Parent = game.CoreGui
 
 local function showNotification(text)
     local note = Instance.new("TextLabel")
@@ -116,12 +134,7 @@ end
 
 showNotification("Affection.cc Loaded")
 
---// Variables
-local camlockEnabled = false
-local lockedPlayer = nil
-local Config = getgenv().Affection
-
---// Functions
+-- Get Closest Player
 local function getClosestPlayer()
     local closest, shortest = nil, math.huge
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -141,13 +154,14 @@ local function getClosestPlayer()
     return closest
 end
 
-local function toggleCamlock()
+-- Toggle Camlock
+function toggleCamlock()
     if not camlockEnabled then
         local target = getClosestPlayer()
         if target then
             camlockEnabled = true
             lockedPlayer = target
-            showNotification("Locked: " .. target.Name)
+            showNotification("Locked onto " .. target.Name)
         else
             showNotification("No player found")
         end
@@ -158,15 +172,14 @@ local function toggleCamlock()
     end
 end
 
---// Button + Keybind
-Button.MouseButton1Click:Connect(toggleCamlock)
+-- Keybind
 UserInputService.InputBegan:Connect(function(input, gp)
-    if not gp and input.KeyCode == Config.Keybind then
+    if not gp and input.KeyCode == Config.ToggleKey then
         toggleCamlock()
     end
 end)
 
---// Auto-Unlock Events
+-- Auto Unlock on Leave/Respawn
 Players.PlayerRemoving:Connect(function(player)
     if player == lockedPlayer then
         camlockEnabled = false
@@ -178,10 +191,10 @@ end)
 LocalPlayer.CharacterAdded:Connect(function()
     camlockEnabled = false
     lockedPlayer = nil
-    showNotification("Respawned, lock disabled")
+    showNotification("You respawned, lock disabled")
 end)
 
---// Main Loop
+-- Main Loop
 RunService.RenderStepped:Connect(function()
     if camlockEnabled and lockedPlayer and lockedPlayer.Character then
         local humanoid = lockedPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -190,19 +203,15 @@ RunService.RenderStepped:Connect(function()
 
         if humanoid and humanoid.Health > 5 and hitPart then
             local predictedPos = hitPart.Position + (rootVel * Config.Prediction)
-
-            -- Anti-Ground
-            if Config.AntiGround and humanoid.FloorMaterial ~= Enum.Material.Air then
-                predictedPos = predictedPos + Vector3.new(0, 2.5, 0)
+            if humanoid.FloorMaterial ~= Enum.Material.Air then
+                predictedPos = predictedPos + Config.AntiGroundOffset
             end
 
-            -- Camera Lock
             local camPos = Camera.CFrame.Position
             local dir = (predictedPos - camPos).Unit
             local newPos = camPos + dir * 0.12
             Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(newPos, predictedPos), 0.9)
 
-            -- AirShoot
             if Config.AirShoot and humanoid.FloorMaterial == Enum.Material.Air then
                 local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
                 if tool then tool:Activate() end
