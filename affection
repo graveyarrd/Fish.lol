@@ -10,12 +10,11 @@ local LocalPlayer = Players.LocalPlayer
 
 --// CONFIG
 local Config = {
-    Prediction = 0.125,                           -- Adjust for ping
-    AntiGround = true,                            -- ✅ Toggle Anti-Ground ON/OFF
-    AntiGroundOffset = Vector3.new(0, 2.5, 0),   -- Height adjustment if AntiGround = true
-    ToggleKey = Enum.KeyCode.Q,                  -- Keybind for toggle
-    HitPart = "HumanoidRootPart",                -- Lock target part
-    AirShoot = true                              -- Auto shoot in air
+    Prediction = 0.125,                -- Adjust for ping
+    AntiGround = true,                 -- ✅ Toggle Anti-Ground ON/OFF
+    Key = "q",                         -- Key for toggle (string instead of Enum)
+    HitPart = "HumanoidRootPart",      -- Lock target part
+    AirShoot = true                    -- Auto shoot in air
 }
 
 --// Variables
