@@ -12,19 +12,19 @@ local Locked = false
 local AutoAirActive = false -- State for Auto Air activation
 
 -- Prediction values with ping-based adjustment
-local basePrediction = 0.1412 -- Adjust this base prediction if needed
+local basePrediction = 0.1412
 local Prediction = basePrediction
 
--- Continuously adjust prediction based on ping
+-- Adjust prediction based on ping
 RunService.Heartbeat:Connect(function()
     local ping = tonumber(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()) or 0
-    Prediction = basePrediction + (ping / 1000) * 0.2 -- Scales prediction based on ping
+    Prediction = basePrediction + (ping / 1000) * 0.2
 end)
 
--- Function to find the nearest enemy
+-- Find the nearest enemy
 function FindNearestEnemy()
     local ClosestDistance, ClosestPlayer = math.huge, nil
-    local CenterPosition = Vector2.new(game:GetService("GuiService"):GetScreenResolution().X / 2, game:GetService("GuiService"):GetScreenResolution().Y / 2)
+    local CenterPosition = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y / 2)
 
     for _, Player in ipairs(Players:GetPlayers()) do
         if Player ~= LocalPlayer and Player.Character then
@@ -32,9 +32,8 @@ function FindNearestEnemy()
             local Humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
 
             if RootPart and Humanoid and Humanoid.Health > 0 then
-                local Position, IsVisibleOnViewport = game:GetService("Workspace").CurrentCamera:WorldToViewportPoint(RootPart.Position)
-
-                if IsVisibleOnViewport then
+                local Position, Visible = workspace.CurrentCamera:WorldToViewportPoint(RootPart.Position)
+                if Visible then
                     local Distance = (CenterPosition - Vector2.new(Position.X, Position.Y)).Magnitude
                     if Distance < ClosestDistance then
                         ClosestPlayer = RootPart
@@ -49,71 +48,62 @@ end
 
 local enemy = nil
 
--- Function to check anti-cheat movement
+-- Anti-cheat check
 local function CheckAnti(Plr)
     local velocity = Plr.Character and Plr.Character:FindFirstChild("HumanoidRootPart") and Plr.Character.HumanoidRootPart.Velocity
     if velocity then
-        if velocity.Y < -70 then
-            return true
-        elseif velocity.X > 450 or velocity.X < -35 then
-            return true
-        elseif velocity.Y > 60 then
-            return true
-        elseif velocity.Z > 35 or velocity.Z < -35 then
+        if velocity.Y < -70 or velocity.Y > 60 or velocity.X > 450 or velocity.Z > 35 or velocity.X < -35 or velocity.Z < -35 then
             return true
         end
     end
     return false
 end
 
--- Main Camlock functionality with Auto Unlock and Auto Tool
+-- Main loop: Lock camera + Auto Unlock + Auto Tool
 RunService.Heartbeat:Connect(function()
     if CamlockState and enemy and enemy.Parent then
         local targetPart = enemy.Parent:FindFirstChild("HumanoidRootPart")
         local targetHumanoid = enemy.Parent:FindFirstChildOfClass("Humanoid")
         local myHumanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 
-        -- Auto Unlock if enemy or local player dies
+        -- Auto Unlock if target or you die
         if (targetHumanoid and targetHumanoid.Health <= 0) or (myHumanoid and myHumanoid.Health <= 0) then
-            CamlockState = false
-            enemy = nil
+            CamlockState, Locked, enemy = false, false, nil
             return
         end
 
-        -- If AntiCheat detects suspicious movement, unlock
+        -- Anti-cheat detection
         if CheckAnti(enemy.Parent) then
-            CamlockState = false
-            enemy = nil
+            CamlockState, Locked, enemy = false, false, nil
             return
         end
 
+        -- Camera Lock
         if targetPart then
             local camera = workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.p, targetPart.Position + targetPart.Velocity * Prediction)
+            camera.CFrame = CFrame.new(camera.CFrame.Position, targetPart.Position + targetPart.Velocity * Prediction)
 
-            -- Anti-ground: Reduce the enemy's freefall speed if they're falling
+            -- Anti-ground adjustment
             if targetHumanoid and targetHumanoid:GetState() == Enum.HumanoidStateType.Freefall then
                 targetPart.Velocity = Vector3.new(targetPart.Velocity.X, targetPart.Velocity.Y * 0.5, targetPart.Velocity.Z)
             end
         end
 
-        -- Auto Tool Activation when LocalPlayer is in the air
+        -- Auto Tool when in air
         if AutoAirActive and myHumanoid and myHumanoid.FloorMaterial == Enum.Material.Air then
             local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if tool then
-                tool:Activate()
-            end
+            if tool then tool:Activate() end
         end
     end
 end)
 
--- Toggle camlock on key press
+-- Toggle camlock with key
 Mouse.KeyDown:Connect(function(k)
     if k == getgenv().Key then
         Locked = not Locked
         if Locked then
             enemy = FindNearestEnemy()
-            CamlockState = true
+            CamlockState = enemy ~= nil
         else
             enemy = nil
             CamlockState = false
@@ -121,57 +111,59 @@ Mouse.KeyDown:Connect(function(k)
     end
 end)
 
--- GUI creation
+-- GUI
 local HELLBOUND = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local UICorner = Instance.new("UICorner")
-local TextButton = Instance.new("TextButton")
+local CamButton = Instance.new("TextButton")
 local AutoAirButton = Instance.new("TextButton")
 
 HELLBOUND.Name = "HELLBOUND"
 HELLBOUND.Parent = game.CoreGui
 
 Frame.Parent = HELLBOUND
-Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-Frame.Size = UDim2.new(0, 200, 0, 60)
+Frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Frame.Size = UDim2.new(0, 200, 0, 80)
 Frame.Position = UDim2.new(0.5, -100, 0.1, 0)
 Frame.Active = true
 Frame.Draggable = true
-
+UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = Frame
 
--- Camlock Toggle Button
-TextButton.Parent = Frame
-TextButton.Position = UDim2.new(0.1, 0, 0.3, 0)
-TextButton.Size = UDim2.new(0.8, 0, 0.3, 0)
-TextButton.Font = Enum.Font.Fantasy
-TextButton.Text = "HELLBOUND OFF"
-TextButton.TextColor3 = Color3.fromRGB(255, 0, 0)
-TextButton.TextScaled = true
+-- Camlock Button
+CamButton.Parent = Frame
+CamButton.Position = UDim2.new(0.05, 0, 0.15, 0)
+CamButton.Size = UDim2.new(0.9, 0, 0.35, 0)
+CamButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+CamButton.Font = Enum.Font.GothamBold
+CamButton.Text = "HELLBOUND OFF"
+CamButton.TextColor3 = Color3.fromRGB(255, 0, 0)
+CamButton.TextScaled = true
+UICorner:Clone().Parent = CamButton
 
--- Toggle Camlock State
-TextButton.MouseButton1Click:Connect(function()
-    CamlockState = not CamlockState
-    TextButton.Text = CamlockState and "HELLBOUND ON" or "HELLBOUND OFF"
-    TextButton.TextColor3 = CamlockState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-
-    if CamlockState then
+CamButton.MouseButton1Click:Connect(function()
+    if not CamlockState then
         enemy = FindNearestEnemy()
+        CamlockState = enemy ~= nil
+        Locked = CamlockState
     else
-        enemy = nil
+        CamlockState, Locked, enemy = false, false, nil
     end
+    CamButton.Text = CamlockState and "HELLBOUND ON" or "HELLBOUND OFF"
+    CamButton.TextColor3 = CamlockState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
 end)
 
--- Auto Air Toggle Button
+-- Auto Air Button
 AutoAirButton.Parent = Frame
-AutoAirButton.Position = UDim2.new(0.1, 0, 0.7, 0)
-AutoAirButton.Size = UDim2.new(0.8, 0, 0.3, 0)
-AutoAirButton.Font = Enum.Font.Fantasy
+AutoAirButton.Position = UDim2.new(0.05, 0, 0.6, 0)
+AutoAirButton.Size = UDim2.new(0.9, 0, 0.35, 0)
+AutoAirButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+AutoAirButton.Font = Enum.Font.GothamBold
 AutoAirButton.Text = "Auto Air OFF"
 AutoAirButton.TextColor3 = Color3.fromRGB(255, 0, 0)
 AutoAirButton.TextScaled = true
+UICorner:Clone().Parent = AutoAirButton
 
--- Toggle Auto Air
 AutoAirButton.MouseButton1Click:Connect(function()
     AutoAirActive = not AutoAirActive
     AutoAirButton.Text = AutoAirActive and "Auto Air ON" or "Auto Air OFF"
