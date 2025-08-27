@@ -1,0 +1,251 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Settings
+local AimPart = "HumanoidRootPart"
+local Enabled = false
+local AntiLock = false
+local ShowFOV = false -- FOV starts off
+local ESPEnabled = false
+local FOV_RADIUS = 115
+local FakePart, Dot = nil, nil
+local ESPHighlights = {}
+
+-- GUI
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.ResetOnSpawn = false
+
+-- FOV Circle
+local fovFrame = Instance.new("Frame", gui)
+fovFrame.Size = UDim2.new(0, FOV_RADIUS*2, 0, FOV_RADIUS*2)
+fovFrame.Position = UDim2.new(0.5, -FOV_RADIUS, 0.5, -FOV_RADIUS)
+fovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+fovFrame.BackgroundTransparency = 1
+fovFrame.BorderMode = Enum.BorderMode.Inset
+fovFrame.BorderSizePixel = 2
+fovFrame.BorderColor3 = Color3.new(1, 1, 1)
+fovFrame.Visible = false
+local fovCorner = Instance.new("UICorner", fovFrame)
+fovCorner.CornerRadius = UDim.new(1, 0)
+
+-- Main Toggle (left side)
+local toggle = Instance.new("TextButton", gui)
+toggle.Size = UDim2.new(0, 180, 0, 40)
+toggle.Position = UDim2.new(0, 10, 0, 10)
+toggle.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+toggle.BorderSizePixel = 2
+toggle.BorderColor3 = Color3.new(0, 0, 0)
+toggle.Font = Enum.Font.Code
+toggle.TextScaled = true
+toggle.TextColor3 = Color3.new(1, 1, 1)
+toggle.Text = "Enable Blatant Lock"
+toggle.Active = true
+toggle.Draggable = true
+
+-- Lock Notification
+local lockBox = Instance.new("TextLabel", gui)
+lockBox.Size = UDim2.new(0, 260, 0, 40)
+lockBox.Position = UDim2.new(0, -260, 0, 60)
+lockBox.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+lockBox.BorderSizePixel = 2
+lockBox.BorderColor3 = Color3.new(0, 0, 0)
+lockBox.Font = Enum.Font.Code
+lockBox.TextScaled = true
+lockBox.Text = ""
+lockBox.TextColor3 = Color3.new(1, 1, 1)
+
+-- Rainbow
+local function rainbowColor(speed)
+	return Color3.fromHSV((tick() * speed) % 1, 1, 1)
+end
+
+-- Slide Notification
+local function slideIn(name)
+	lockBox.Text = "Locked on " .. name
+	TweenService:Create(lockBox, TweenInfo.new(0.4), {Position = UDim2.new(0, 10, 0, 60)}):Play()
+end
+local function slideOut()
+	TweenService:Create(lockBox, TweenInfo.new(0.4), {Position = UDim2.new(0, -260, 0, 60)}):Play()
+end
+
+-- Visuals
+local function clearVisuals()
+	if FakePart then FakePart:Destroy() FakePart = nil end
+	if Dot then Dot:Destroy() Dot = nil end
+end
+
+local function createVisuals(char)
+	clearVisuals()
+	local part = char:FindFirstChild(AimPart)
+	if not part then return end
+
+	FakePart = Instance.new("BoxHandleAdornment")
+	FakePart.Size = Vector3.new(24, 24, 24)
+	FakePart.Adornee = part
+	FakePart.AlwaysOnTop = true
+	FakePart.ZIndex = 10
+	FakePart.Transparency = 0.7
+	FakePart.Color3 = Color3.new(0, 0, 0)
+	FakePart.Parent = workspace
+
+	Dot = Instance.new("Part")
+	Dot.Size = Vector3.new(0.4, 0.4, 0.4)
+	Dot.Anchored = true
+	Dot.CanCollide = false
+	Dot.Material = Enum.Material.Neon
+	Dot.Shape = Enum.PartType.Ball
+	Dot.Color = Color3.new(1, 1, 1)
+	Dot.Parent = workspace
+end
+
+local function updateDot(part)
+	local t = tick()
+	local r = 12
+	local x = math.cos(t * 1.5) * r
+	local z = math.sin(t * 1.5) * r
+	Dot.CFrame = part.CFrame:ToWorldSpace(CFrame.new(x, 0, z))
+end
+
+local function getClosest()
+	local best, shortest = nil, FOV_RADIUS
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(AimPart) then
+			local pos, on = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
+			if on then
+				local dist = (Vector2.new(pos.X, pos.Y) - Camera.ViewportSize/2).Magnitude
+				if dist < shortest then shortest, best = dist, p end
+			end
+		end
+	end
+	return best
+end
+
+-- ESP
+local function updateESP()
+	for _, v in pairs(ESPHighlights) do
+		v:Destroy()
+	end
+	ESPHighlights = {}
+
+	if not ESPEnabled then return end
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local highlight = Instance.new("Highlight")
+			highlight.FillColor = Color3.fromRGB(255, 50, 50)
+			highlight.OutlineColor = Color3.new(1, 1, 1)
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			highlight.Adornee = player.Character
+			highlight.Parent = player.Character
+			table.insert(ESPHighlights, highlight)
+		end
+	end
+end
+
+-- Render loop
+RunService.RenderStepped:Connect(function()
+	fovFrame.Visible = ShowFOV
+	updateESP()
+
+	if not Enabled then
+		clearVisuals()
+		slideOut()
+		return
+	end
+
+	local target = getClosest()
+	if target and target.Character and target.Character:FindFirstChild(AimPart) then
+		local part = target.Character[AimPart]
+		if AntiLock then
+			local dir = (Camera.CFrame.Position - part.Position).Unit
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position - dir * 5)
+		else
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+		end
+		createVisuals(target.Character)
+		updateDot(part)
+		lockBox.TextColor3 = rainbowColor(0.5)
+		slideIn(target.DisplayName)
+	else
+		clearVisuals()
+		slideOut()
+	end
+end)
+
+-- Blatant lock toggle
+toggle.MouseButton1Click:Connect(function()
+	Enabled = not Enabled
+	toggle.Text = Enabled and "Disable Blatant Lock" or "Enable Blatant Lock"
+end)
+
+--▶️ Top-right Toggle Button for Extra Features
+local openCloseButton = Instance.new("TextButton", gui)
+openCloseButton.Size = UDim2.new(0, 100, 0, 30)
+openCloseButton.Position = UDim2.new(1, -110, 0, 10)
+openCloseButton.BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
+openCloseButton.BorderSizePixel = 2
+openCloseButton.BorderColor3 = Color3.new(0, 0, 0)
+openCloseButton.Font = Enum.Font.Code
+openCloseButton.TextScaled = true
+openCloseButton.TextColor3 = Color3.new(1, 1, 1)
+openCloseButton.Text = "Extras"
+
+--▶️ Extra Features Panel
+local extraFrame = Instance.new("Frame", gui)
+extraFrame.Size = UDim2.new(0, 220, 0, 160)
+extraFrame.Position = UDim2.new(0.5, -110, 0, 60)
+extraFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+extraFrame.BorderSizePixel = 2
+extraFrame.BorderColor3 = Color3.new(0, 0, 0)
+extraFrame.Visible = false
+extraFrame.Active = true
+extraFrame.Draggable = true
+
+local title = Instance.new("TextLabel", extraFrame)
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.Code
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextScaled = true
+title.Text = "Extra Features"
+
+-- Toggles inside panel
+local function createToggle(name, position, callback)
+	local button = Instance.new("TextButton", extraFrame)
+	button.Size = UDim2.new(1, -20, 0, 30)
+	button.Position = UDim2.new(0, 10, 0, position)
+	button.BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
+	button.BorderSizePixel = 1
+	button.BorderColor3 = Color3.new(0, 0, 0)
+	button.Font = Enum.Font.Code
+	button.TextScaled = true
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Text = name .. ": OFF"
+
+	local state = false
+	button.MouseButton1Click:Connect(function()
+		state = not state
+		button.Text = name .. ": " .. (state and "ON" or "OFF")
+		callback(state)
+	end)
+	return button
+end
+
+-- Feature Toggles
+createToggle("Anti-Lock", 40, function(s) AntiLock = s end)
+createToggle("FOV", 80, function(s) ShowFOV = s end)
+createToggle("ESP", 120, function(s) ESPEnabled = s end)
+
+-- Open/Close button logic
+openCloseButton.MouseButton1Click:Connect(function()
+	extraFrame.Visible = not extraFrame.Visible
+end)
+
+
+
+
+      
